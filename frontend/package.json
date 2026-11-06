@@ -10,16 +10,17 @@
         "preview": "vite preview"
     },
     "dependencies": {
+        "@headlessui/react": "^1.7.17",
+        "axios": "^1.6.2",
+        "date-fns": "^2.30.0",
+        "html2pdf.js": "^0.14.0",
+        "lucide-react": "^0.294.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
-        "react-router-dom": "^6.20.1",
-        "react-query": "^3.39.3",
-        "zustand": "^4.4.7",
-        "axios": "^1.6.2",
-        "lucide-react": "^0.294.0",
-        "@headlessui/react": "^1.7.17",
         "react-dropzone": "^14.2.3",
-        "date-fns": "^2.30.0"
+        "react-query": "^3.39.3",
+        "react-router-dom": "^6.20.1",
+        "zustand": "^4.4.7"
     },
     "devDependencies": {
         "@types/react": "^18.2.37",

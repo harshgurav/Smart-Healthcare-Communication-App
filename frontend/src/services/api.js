@@ -31,7 +31,19 @@ export const visitService = {
 export const prescriptionService = {
     getByVisitId: (visitId) => api.get(`/visits/${visitId}/prescriptions`).then(res => res.data),
     create: (visitId, data) => api.post(`/visits/${visitId}/prescriptions`, data).then(res => res.data),
+    bulkReplace: (visitId, prescriptions) => api.post(`/visits/${visitId}/prescriptions/bulk`, prescriptions).then(res => res.data),
     update: (id, data) => api.put(`/prescriptions/${id}`, data).then(res => res.data),
+}
+
+// Medicine catalog services
+export const medicineService = {
+    search: (q = '') => api.get('/medicines/search', { params: { q } }).then(res => res.data),
+}
+
+// Clinic settings services
+export const clinicService = {
+    get: () => api.get('/clinic').then(res => res.data),
+    update: (data) => api.put('/clinic', data).then(res => res.data),
 }
 
 // AI services

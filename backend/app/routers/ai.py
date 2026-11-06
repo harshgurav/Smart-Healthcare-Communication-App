@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.patient import Patient, MedicalHistory
 from app.models.visit import Visit
+from app.routers.medicines import search_medicines_db
 from typing import List
-import os
 
 router = APIRouter()
 
@@ -14,12 +14,7 @@ MOCK_RESPONSES = {
         "chronic_hypertension": "Patient shows well-controlled hypertension with regular medication compliance. Recent visits indicate stable blood pressure readings.",
         "diabetes_type2": "Type 2 diabetes managed with lifestyle modifications and medication. HbA1c levels require monitoring.",
         "default": "Patient presents with routine medical history requiring regular monitoring and preventive care."
-    },
-    "medicine_suggestions": [
-        "Paracetamol 500mg", "Ibuprofen 400mg", "Amoxicillin 250mg",
-        "Amlodipine 5mg", "Metformin 500mg", "Lisinopril 10mg",
-        "Aspirin 75mg", "Omeprazole 20mg", "Atorvastatin 20mg"
-    ]
+    }
 }
 
 @router.post("/patients/{patient_id}/summary")
@@ -69,11 +64,13 @@ async def generate_patient_summary(patient_id: int, db: Session = Depends(get_db
     }
 
 @router.post("/ai/medicine-search")
-async def search_medicines(query: str):
-    # Filter medicines based on query (mock implementation)
-    medicines = MOCK_RESPONSES["medicine_suggestions"]
-    filtered = [med for med in medicines if query.lower() in med.lower()]
-    return {"suggestions": filtered[:5]}
+async def search_medicines(query: str = "", db: Session = Depends(get_db)):
+    results = search_medicines_db(db, q=query, limit=8)
+    suggestions = [
+        f"{m.name} {m.strength}".strip() if m.strength else m.name
+        for m in results
+    ]
+    return {"suggestions": suggestions}
 
 @router.post("/ai/diagnosis-assist")
 async def diagnosis_assist(symptoms: List[str]):

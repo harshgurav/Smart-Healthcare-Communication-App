@@ -1,10 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import patients, visits, prescriptions, documents, ai
-from app.database import engine, Base
+from app.routers import patients, visits, prescriptions, documents, ai, medicines, clinic
+from app.seed import init_and_seed_db
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Ensure schema migrations, create database tables, and seed initial data
+init_and_seed_db()
 
 app = FastAPI(
     title="Patient Management System API",
@@ -25,6 +25,8 @@ app.add_middleware(
 app.include_router(patients.router, prefix="/api", tags=["patients"])
 app.include_router(visits.router, prefix="/api", tags=["visits"])
 app.include_router(prescriptions.router, prefix="/api", tags=["prescriptions"])
+app.include_router(medicines.router, prefix="/api", tags=["medicines"])
+app.include_router(clinic.router, prefix="/api", tags=["clinic"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
 app.include_router(ai.router, prefix="/api", tags=["ai"])
 

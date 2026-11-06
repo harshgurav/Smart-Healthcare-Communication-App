@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, Boolean
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -23,6 +23,11 @@ class Prescription(Base):
     visit_id = Column(Integer, nullable=False)
     medicine_name = Column(String(100))
     dosage = Column(String(50))
+    morning = Column(Boolean, default=False, nullable=False)
+    noon = Column(Boolean, default=False, nullable=False)
+    night = Column(Boolean, default=False, nullable=False)
+    food_timing = Column(String(20), default="after")  # "before" | "after" | "with" | "any"
+    duration_days = Column(Integer, nullable=True)
     frequency = Column(String(50))
     duration = Column(String(50))
     instructions = Column(Text)

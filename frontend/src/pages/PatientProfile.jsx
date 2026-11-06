@@ -2,29 +2,22 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery } from 'react-query'
 import { 
   User, 
-  Calendar, 
   FileText, 
   Plus, 
-  Activity, 
-  Phone, 
   Mail, 
-  MapPin,
-  Edit,
-  Upload,
-  Clock,
-  Stethoscope,
   Pill,
   Heart,
   Weight,
   Ruler,
-  MessageSquare
+  MessageSquare,
+  Printer
 } from 'lucide-react'
-import { patientService, visitService, aiService } from '../services/api'
+import { patientService, visitService, prescriptionService } from '../services/api'
 
 const PatientProfile = () => {
   const { id } = useParams()
   
-  // Mock patient data for demonstration
+  // Fallback mock patient data
   const mockPatient = {
     patient_id: id,
     first_name: 'Ramesh',
@@ -41,7 +34,7 @@ const PatientProfile = () => {
     status: 'Stable',
     last_visit: '2025-09-17',
     next_appointment: '2025-10-15',
-    patient_id_display: 'HPID-QEM6341120'
+    patient_id_display: `HPID-QEM63411${String(id).padStart(2, '0')}`
   }
 
   const mockVisits = [
@@ -117,14 +110,73 @@ const PatientProfile = () => {
     }
   ]
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'Stable': 'bg-green-100 text-green-800',
-      'Needs Attention': 'bg-yellow-100 text-yellow-800',
-      'Critical': 'bg-red-100 text-red-800'
-    }
-    return colors[status] || 'bg-gray-100 text-gray-800'
-  }
+  const { data: apiPatient } = useQuery(
+    ['patient', id],
+    () => patientService.getById(id),
+    { retry: 1 }
+  )
+
+  const { data: apiVisits } = useQuery(
+    ['patient-visits-with-rx', id],
+    async () => {
+      const visitsList = await visitService.getByPatientId(id)
+      if (!Array.isArray(visitsList) || visitsList.length === 0) return null
+      const enriched = await Promise.all(
+        visitsList.map(async (v) => {
+          let rxList = []
+          try {
+            rxList = await prescriptionService.getByVisitId(v.visit_id)
+          } catch {
+            rxList = []
+          }
+          return {
+            visit_id: v.visit_id,
+            visit_date: v.visit_date,
+            doctor: 'Dr. Sarah Wilson',
+            vitals: {
+              height: apiPatient?.height ? `${apiPatient.height} cm` : '166 cm',
+              weight: apiPatient?.weight ? `${apiPatient.weight} kg` : '72 kg',
+              bp: '120 / 80 mmHg',
+            },
+            diagnosis: v.diagnosis || 'General Consultation',
+            chief_complaints: v.chief_complaint || '',
+            prescriptions: rxList.map((rx) => {
+              const hasTicks = rx.morning || rx.noon || rx.night
+              const dosePattern = hasTicks
+                ? `${rx.morning ? 1 : 0} - ${rx.noon ? 1 : 0} - ${rx.night ? 1 : 0}`
+                : rx.frequency || '1 - 0 - 1'
+              const timingMap = {
+                before: 'Before Food',
+                after: 'After Food',
+                with: 'With Food',
+                any: 'Any Time',
+              }
+              return {
+                medicine: `${rx.medicine_name || ''} ${rx.dosage || ''}`.trim(),
+                dose: dosePattern,
+                timing: timingMap[rx.food_timing] || rx.food_timing || 'After Food',
+                frequency: rx.frequency || dosePattern,
+                duration: rx.duration_days ? `${rx.duration_days} days` : rx.duration || '--',
+                note: rx.instructions || '',
+              }
+            }),
+          }
+        })
+      )
+      return enriched
+    },
+    { retry: 1 }
+  )
+
+  const patient = apiPatient
+    ? {
+        ...mockPatient,
+        ...apiPatient,
+        patient_id_display: `HPID-QEM63411${String(apiPatient.patient_id).padStart(2, '0')}`,
+      }
+    : mockPatient
+
+  const visits = apiVisits && apiVisits.length > 0 ? apiVisits : mockVisits
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
@@ -145,23 +197,27 @@ const PatientProfile = () => {
             </div>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">
-                Mr. {mockPatient.first_name} {mockPatient.last_name}
+                {patient.first_name} {patient.last_name}
               </h1>
               <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <span>{mockPatient.patient_id_display}</span>
+                <span>{patient.patient_id_display}</span>
                 <span>•</span>
-                <span>{mockPatient.age}y</span>
+                <span>{patient.age}y</span>
                 <span>•</span>
-                <span>{mockPatient.sex}</span>
+                <span>{patient.sex}</span>
                 <span>•</span>
-                <span>{mockPatient.phone}</span>
+                <span>{patient.phone}</span>
               </div>
             </div>
           </div>
           <div className="flex space-x-3">
-            <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
-              End Consultation
-            </button>
+            <Link
+              to={`/patients/${id}/visit`}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Visit / Rx</span>
+            </Link>
           </div>
         </div>
       </div>
@@ -170,7 +226,7 @@ const PatientProfile = () => {
         {/* Timeline Sidebar */}
         <div className="w-20 bg-white border-r border-gray-200 py-6">
           <div className="space-y-6">
-            {mockVisits.map((visit, index) => {
+            {visits.map((visit, index) => {
               const { day, month } = formatDate(visit.visit_date)
               return (
                 <div key={visit.visit_id} className="text-center">
@@ -207,17 +263,17 @@ const PatientProfile = () => {
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Past Visits</h3>
-              <span className="text-sm text-gray-600">4 visits Since 06-Aug-2025</span>
+              <span className="text-sm text-gray-600">{visits.length} visit(s)</span>
             </div>
 
             <div className="space-y-4">
-              {mockVisits.map((visit, index) => {
+              {visits.map((visit) => {
                 const { day, month, year } = formatDate(visit.visit_date)
                 return (
                   <div key={visit.visit_id} className="bg-white rounded-lg shadow-sm border border-gray-200">
                     {/* Visit Header */}
                     <div className="px-6 py-4 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center space-x-4">
                           <div className="text-center">
                             <div className="text-2xl font-bold text-gray-900">{day}</div>
@@ -231,7 +287,7 @@ const PatientProfile = () => {
                             <p className="text-sm text-gray-600">By {visit.doctor}</p>
                           </div>
                         </div>
-                        <div className="flex space-x-2">
+                        <div className="flex items-center space-x-3">
                           <button className="text-blue-500 hover:text-blue-600 text-sm flex items-center space-x-1">
                             <Mail className="w-4 h-4" />
                             <span>Email</span>
@@ -240,10 +296,13 @@ const PatientProfile = () => {
                             <MessageSquare className="w-4 h-4" />
                             <span>SMS</span>
                           </button>
-                          <button className="text-blue-500 hover:text-blue-600 text-sm flex items-center space-x-1">
-                            <FileText className="w-4 h-4" />
-                            <span>Print</span>
-                          </button>
+                          <Link
+                            to={`/visits/${visit.visit_id}/prescription`}
+                            className="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg text-sm font-medium flex items-center space-x-1.5 transition-colors"
+                          >
+                            <Printer className="w-4 h-4" />
+                            <span>View / Print Prescription</span>
+                          </Link>
                         </div>
                       </div>
                     </div>
@@ -305,7 +364,7 @@ const PatientProfile = () => {
                               {visit.prescriptions.map((prescription, idx) => (
                                 <tr key={idx} className="border-b border-gray-100">
                                   <td className="py-2 px-3 text-gray-900">{prescription.medicine}</td>
-                                  <td className="py-2 px-3 text-gray-600">{prescription.dose}</td>
+                                  <td className="py-2 px-3 text-gray-600 font-mono">{prescription.dose}</td>
                                   <td className="py-2 px-3 text-gray-600">{prescription.timing}</td>
                                   <td className="py-2 px-3 text-gray-600">{prescription.frequency}</td>
                                   <td className="py-2 px-3 text-gray-600">{prescription.duration}</td>
